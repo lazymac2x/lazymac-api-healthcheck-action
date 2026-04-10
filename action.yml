@@ -1,0 +1,82 @@
+name: 'lazymac API Healthcheck'
+description: 'Ping any REST/MCP API endpoint and fail the workflow on non-2xx (or below threshold). Zero deps.'
+author: 'lazymac2x'
+branding:
+  icon: 'activity'
+  color: 'orange'
+
+inputs:
+  url:
+    description: 'URL to ping (e.g. https://api.lazy-mac.com/qr-code)'
+    required: true
+  expected-status:
+    description: 'Expected HTTP status (default 200). Comma-separated list allowed.'
+    required: false
+    default: '200'
+  timeout:
+    description: 'Request timeout in seconds'
+    required: false
+    default: '10'
+  max-response-ms:
+    description: 'Fail if response time exceeds this (ms). 0 disables.'
+    required: false
+    default: '0'
+  headers:
+    description: 'Optional headers in `Key: Value` format, one per line'
+    required: false
+    default: ''
+  retries:
+    description: 'Retries on failure'
+    required: false
+    default: '2'
+
+outputs:
+  status:
+    description: 'HTTP status returned'
+    value: ${{ steps.ping.outputs.status }}
+  response-ms:
+    description: 'Response time in milliseconds'
+    value: ${{ steps.ping.outputs.response_ms }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: ping
+      shell: bash
+      run: |
+        set -euo pipefail
+        URL="${{ inputs.url }}"
+        EXPECTED="${{ inputs.expected-status }}"
+        TIMEOUT="${{ inputs.timeout }}"
+        MAX_MS="${{ inputs.max-response-ms }}"
+        RETRIES="${{ inputs.retries }}"
+
+        HDR_ARGS=()
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          HDR_ARGS+=("-H" "$line")
+        done <<< "${{ inputs.headers }}"
+
+        attempt=0
+        while [ $attempt -le $RETRIES ]; do
+          attempt=$((attempt + 1))
+          start_ns=$(date +%s%N)
+          status=$(curl -s -o /tmp/_body -w "%{http_code}" --max-time "$TIMEOUT" "${HDR_ARGS[@]}" "$URL" || echo "000")
+          end_ns=$(date +%s%N)
+          ms=$(( (end_ns - start_ns) / 1000000 ))
+          echo "attempt=$attempt status=$status ms=$ms"
+          if [[ ",$EXPECTED," == *,"$status",* ]]; then
+            if [ "$MAX_MS" -gt 0 ] && [ "$ms" -gt "$MAX_MS" ]; then
+              echo "::warning::response too slow ($ms ms > $MAX_MS ms)"
+              [ $attempt -le $RETRIES ] && sleep 2 && continue
+            fi
+            echo "status=$status" >> "$GITHUB_OUTPUT"
+            echo "response_ms=$ms" >> "$GITHUB_OUTPUT"
+            echo "::notice::OK $status in ${ms}ms"
+            exit 0
+          fi
+          [ $attempt -le $RETRIES ] && sleep 2
+        done
+        echo "::error::healthcheck failed after $RETRIES retries (status=$status)"
+        cat /tmp/_body | head -200 || true
+        exit 1
