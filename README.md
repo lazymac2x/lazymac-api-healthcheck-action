@@ -1,5 +1,7 @@
 # lazymac API Healthcheck Action
 
+> ⭐ **Building in public from $0 MRR.** Star if you want to follow the journey — [lazymac-mcp](https://github.com/lazymac2x/lazymac-mcp) (42 tools, one MCP install) · [lazymac-k-mcp](https://github.com/lazymac2x/lazymac-k-mcp) (Korean wedge) · [lazymac-sdk](https://github.com/lazymac2x/lazymac-sdk) (TS client) · [api.lazy-mac.com](https://api.lazy-mac.com) · [Pro $29/mo](https://coindany.gumroad.com/l/zlewvz).
+
 > A zero-dep GitHub Action that pings a REST/MCP API and fails the workflow on non-2xx, slow responses, or repeated errors. Drop into any pipeline.
 
 [![GitHub Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-Available-green)](https://github.com/marketplace/actions/lazymac-api-healthcheck)
